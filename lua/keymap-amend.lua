@@ -4,65 +4,63 @@ local api = vim.api
 ---@param keys string
 ---@return string
 local function termcodes(keys)
-   return api.nvim_replace_termcodes(keys, true, true, true) --[[@as string]]
+  return api.nvim_replace_termcodes(keys, true, true, true) --[[@as string]]
 end
 
 ---Returns if two key sequence are equal or not.
 ---@param a string
 ---@param b string
 ---@return boolean
-local function keymap_equals(a, b)
-   return termcodes(a) == termcodes(b)
-end
+local function keymap_equals(a, b) return termcodes(a) == termcodes(b) end
 
 ---Get map
 ---@param mode string
 ---@param lhs string
 ---@return table
 local function get_map(mode, lhs)
-   for _, map in ipairs(api.nvim_buf_get_keymap(0, mode)) do
-      if keymap_equals(map.lhs, lhs) then
-         return {
-            lhs = map.lhs,
-            rhs = map.rhs or '',
-            expr = map.expr == 1,
-            callback = map.callback,
-            noremap = map.noremap == 1,
-            script = map.script == 1,
-            silent = map.silent == 1,
-            nowait = map.nowait == 1,
-            buffer = true,
-         }
-      end
-   end
+  for _, map in ipairs(api.nvim_buf_get_keymap(0, mode)) do
+    if keymap_equals(map.lhs, lhs) then
+      return {
+        lhs = map.lhs,
+        rhs = map.rhs or "",
+        expr = map.expr == 1,
+        callback = map.callback,
+        noremap = map.noremap == 1,
+        script = map.script == 1,
+        silent = map.silent == 1,
+        nowait = map.nowait == 1,
+        buffer = true,
+      }
+    end
+  end
 
-   for _, map in ipairs(api.nvim_get_keymap(mode)) do
-      if keymap_equals(map.lhs, lhs) then
-         return {
-            lhs = map.lhs,
-            rhs = map.rhs or '',
-            expr = map.expr == 1,
-            callback = map.callback,
-            noremap = map.noremap == 1,
-            script = map.script == 1,
-            silent = map.silent == 1,
-            nowait = map.nowait == 1,
-            buffer = false,
-         }
-      end
-   end
+  for _, map in ipairs(api.nvim_get_keymap(mode)) do
+    if keymap_equals(map.lhs, lhs) then
+      return {
+        lhs = map.lhs,
+        rhs = map.rhs or "",
+        expr = map.expr == 1,
+        callback = map.callback,
+        noremap = map.noremap == 1,
+        script = map.script == 1,
+        silent = map.silent == 1,
+        nowait = map.nowait == 1,
+        buffer = false,
+      }
+    end
+  end
 
-   return {
-      lhs = lhs,
-      rhs = lhs,
-      expr = false,
-      callback = nil,
-      noremap = true,
-      script = false,
-      silent = true,
-      nowait = false,
-      buffer = false,
-   }
+  return {
+    lhs = lhs,
+    rhs = lhs,
+    expr = false,
+    callback = nil,
+    noremap = true,
+    script = false,
+    silent = true,
+    nowait = false,
+    buffer = false,
+  }
 end
 
 ---Returns the function constructed from the passed keymap object on call of
@@ -70,24 +68,24 @@ end
 ---@param map table keymap object
 ---@return function
 local function get_original(map)
-   return function()
-      local keys, fmode
-      if map.expr then
-         if map.callback then
-            keys = map.callback()
-         else
-            keys = api.nvim_eval(map.rhs)
-         end
-      elseif map.callback then
-         map.callback()
-         return
+  return function()
+    local keys, fmode
+    if map.expr then
+      if map.callback then
+        keys = map.callback()
       else
-         keys = map.rhs
+        keys = api.nvim_eval(map.rhs)
       end
-      keys = termcodes(keys)
-      fmode = map.noremap and 'in' or 'im'
-      api.nvim_feedkeys(keys, fmode, false)
-   end
+    elseif map.callback then
+      map.callback()
+      return
+    else
+      keys = map.rhs
+    end
+    keys = termcodes(keys)
+    fmode = map.noremap and "in" or "im"
+    api.nvim_feedkeys(keys, fmode, false)
+  end
 end
 
 ---@param mode string
@@ -95,14 +93,19 @@ end
 ---@param rhs string | function
 ---@param opts? table
 local function amend(mode, lhs, rhs, opts)
-   local map = get_map(mode, lhs)
-   local original = get_original(map)
-   opts = opts or {}
-   opts.desc = table.concat{
-      '[keymap-amend.nvim', (opts.desc and ': '..opts.desc or ''), '] ',
-      map.desc or ''
-   }
-   vim.keymap.set(mode, lhs, function() rhs(original) end, opts)
+  local map = get_map(mode, lhs)
+  local original = get_original(map)
+  opts = opts or {}
+  opts.desc = opts.desc or map.desc or ""
+
+  if opts.augment_desc then
+    opts.desc = table.concat {
+      "[keymap-amend.nvim",
+      (opts.desc and ": " .. opts.desc or ""),
+      "] ",
+    }
+  end
+  vim.keymap.set(mode, lhs, function() rhs(original) end, opts)
 end
 
 ---Amend the existing keymap.
@@ -111,13 +114,13 @@ end
 ---@param rhs string | function
 ---@param opts? table
 local function modes_amend(mode, lhs, rhs, opts)
-   if type(mode) == 'table' then
-      for _, m in ipairs(mode) do
-         amend(m, lhs, rhs, opts)
-      end
-   else
-      amend(mode, lhs, rhs, opts)
-   end
+  if type(mode) == "table" then
+    for _, m in ipairs(mode) do
+      amend(m, lhs, rhs, opts)
+    end
+  else
+    amend(mode, lhs, rhs, opts)
+  end
 end
 
 return modes_amend
